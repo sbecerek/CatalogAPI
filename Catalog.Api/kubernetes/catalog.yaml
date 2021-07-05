@@ -1,0 +1,55 @@
+apiVersion: apps/v1 #version
+kind: Deployment    
+metadata:
+  name: catalog-deployment #name for deployment
+spec:
+  selector: #used to define which pods to manage
+    matchLabels: #manage all the pods
+      app: catalog #all pods with such label will be managed
+  template:        #assigns label 'catalog' to all pods
+    metadata:
+      labels:
+        app: catalog
+    spec: 
+      containers:  #list of containers to include
+      - name: catalog
+        image: suheybb/catalog:v2 #from dockerhub
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m" #0.5 CPU = half cpu
+        ports:          #port container exposing
+        - containerPort: 80
+        env:
+          - name: MongoDBSettings__Host
+            value: mongodb-service
+          #for password we use kubernetes secrets
+          - name: MongoDBSettings__Password
+            valueFrom:
+              secretKeyRef:
+                name: catalog-secrets
+                key: mongodb-password
+        #health checks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 80
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+spec:
+  type: LoadBalancer #allows k8 to request a way to open a window to outside
+  selector: #label for pods
+    app: catalog
+  ports:
+  #mapping 80 to 80
+  - port: 80
+    targetPort: 80
+
